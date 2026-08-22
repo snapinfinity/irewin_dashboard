@@ -2,69 +2,75 @@ import { config } from "dotenv";
 
 config({ path: ".env.local" });
 
-const { adminAuth, adminDb } = await import("../src/lib/firebase/admin");
-
 async function main() {
-  const emails = (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((e) => e.trim())
-    .filter(Boolean);
+  // Deferred until after dotenv has populated process.env, since
+  // lib/firebase/admin.ts reads env vars (emulator flag, project id) at
+  // import time. A top-level await here would also break tsx's default CJS
+  // transform, which doesn't support top-level await.
+  const { adminAuth: getAuthClient, adminDb: getDbClient } = await import("../src/lib/firebase/admin");
+  const { provisionAdmin, NoExistingAuthUserError } = await import("../src/lib/firebase/adminProvisioning");
 
-  if (emails.length === 0) {
-    console.error("No ADMIN_EMAILS set. Add a comma-separated list of emails to .env.local and re-run.");
+  const superAdminEmail = (process.env.SUPER_ADMIN_EMAIL ?? "").trim().toLowerCase();
+
+  const emails = new Set(
+    (process.env.ADMIN_EMAILS ?? "")
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean),
+  );
+
+  // A misconfigured ADMIN_EMAILS must never leave the project with zero
+  // owners: if SUPER_ADMIN_EMAIL is set, it's always processed even if
+  // someone forgot to list it in ADMIN_EMAILS too.
+  if (superAdminEmail) {
+    emails.add(superAdminEmail);
+  }
+
+  if (emails.size === 0) {
+    console.error("No ADMIN_EMAILS or SUPER_ADMIN_EMAIL set. Add at least one to .env.local and re-run.");
     process.exit(1);
   }
 
+  const adminAuth = getAuthClient();
+  const adminDb = getDbClient();
   const defaultPassword = process.env.ADMIN_DEFAULT_PASSWORD;
 
-  const results: { email: string; status: string }[] = [];
+  const results: { email: string; role: string; status: string }[] = [];
 
   for (const email of emails) {
-    let userRecord;
-    let createdNewAccount = false;
+    const role = email === superAdminEmail ? "owner" : "admin";
     try {
-      userRecord = await adminAuth.getUserByEmail(email);
-    } catch {
-      // No existing Firebase Auth user (neither Google sign-in nor email/password).
-      if (defaultPassword) {
-        try {
-          userRecord = await adminAuth.createUser({ email, password: defaultPassword });
-          createdNewAccount = true;
-        } catch (err) {
-          results.push({ email, status: `FAILED to create user — ${(err as Error).message}` });
-          continue;
-        }
-      } else {
+      const { createdNewAuthUser } = await provisionAdmin(adminAuth, adminDb, {
+        email,
+        role,
+        password: defaultPassword,
+      });
+      results.push({
+        email,
+        role,
+        status: createdNewAuthUser ? "granted (new account, default password)" : "granted",
+      });
+    } catch (err) {
+      if (err instanceof NoExistingAuthUserError) {
         results.push({
           email,
+          role,
           status:
             "SKIPPED — no Firebase Auth user found. Either have this person sign in once via /login (Google), or set ADMIN_DEFAULT_PASSWORD and re-run to create an email/password account for them.",
         });
-        continue;
+      } else {
+        results.push({ email, role, status: `FAILED — ${(err as Error).message}` });
       }
     }
-
-    await adminDb
-      .collection("admins")
-      .doc(userRecord.uid)
-      .set(
-        {
-          uid: userRecord.uid,
-          email: userRecord.email ?? email,
-          name: userRecord.displayName ?? "",
-          photoURL: userRecord.photoURL ?? null,
-          role: "owner",
-          createdAt: new Date(),
-        },
-        { merge: true },
-      );
-    results.push({ email, status: createdNewAccount ? "granted (new account, default password)" : "granted" });
   }
 
   console.table(results);
+  if (!superAdminEmail) {
+    console.log("\nNo SUPER_ADMIN_EMAIL set — every account above was granted role 'admin' (sub-admin), not 'owner'.");
+  }
   if (defaultPassword) {
     console.log(
-      "\nAny newly created accounts use ADMIN_DEFAULT_PASSWORD — have that admin sign in once and use \"Forgot password?\" to set their own.",
+      "Any newly created accounts use ADMIN_DEFAULT_PASSWORD — have that admin sign in once and use \"Forgot password?\" to set their own.",
     );
   }
   process.exit(0);

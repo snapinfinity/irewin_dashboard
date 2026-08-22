@@ -1,27 +1,18 @@
 import { NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { adminDb } from "@/lib/firebase/admin";
+import { AuthRequestError, verifyCallerIsAdmin } from "@/lib/firebase/verifyAdminRequest";
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  const idToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-  if (!idToken) {
-    return NextResponse.json({ error: "Missing bearer token" }, { status: 401 });
-  }
-
-  let uid: string;
   try {
-    const decoded = await adminAuth.verifyIdToken(idToken);
-    uid = decoded.uid;
-  } catch {
-    return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    await verifyCallerIsAdmin(request);
+  } catch (err) {
+    if (err instanceof AuthRequestError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    throw err;
   }
 
-  const callerDoc = await adminDb.collection("admins").doc(uid).get();
-  if (!callerDoc.exists) {
-    return NextResponse.json({ error: "Not an admin" }, { status: 403 });
-  }
-
-  const snapshot = await adminDb.collection("admins").orderBy("createdAt", "asc").get();
+  const snapshot = await adminDb().collection("admins").orderBy("createdAt", "asc").get();
   const admins = snapshot.docs.map((doc) => {
     const data = doc.data();
     return {

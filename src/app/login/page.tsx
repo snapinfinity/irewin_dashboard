@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useAuth } from "@/lib/auth/useAuth";
+import type { SignInFailureReason } from "@/lib/auth/AuthProvider";
 
 function GoogleIcon() {
   return (
@@ -57,7 +58,7 @@ export default function LoginPage() {
   const { user, isAdmin, loading, signInWithGoogle, signInWithEmailPassword, sendPasswordReset } = useAuth();
   const [signingInGoogle, setSigningInGoogle] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [unauthorized, setUnauthorized] = useState(false);
+  const [failure, setFailure] = useState<SignInFailureReason | null>(null);
   const [mode, setMode] = useState<"signin" | "reset">("signin");
   const [resetSent, setResetSent] = useState(false);
   const router = useRouter();
@@ -79,11 +80,11 @@ export default function LoginPage() {
 
   async function handleGoogleSignIn() {
     setSigningInGoogle(true);
-    setUnauthorized(false);
+    setFailure(null);
     try {
-      const { authorized } = await signInWithGoogle();
+      const { authorized, reason } = await signInWithGoogle();
       if (!authorized) {
-        setUnauthorized(true);
+        setFailure(reason ?? "not-admin");
       } else {
         router.replace("/admin");
       }
@@ -96,11 +97,11 @@ export default function LoginPage() {
 
   async function handleCredentialsSignIn(values: CredentialsValues) {
     setSubmitting(true);
-    setUnauthorized(false);
+    setFailure(null);
     try {
-      const { authorized } = await signInWithEmailPassword(values.email, values.password);
+      const { authorized, reason } = await signInWithEmailPassword(values.email, values.password);
       if (!authorized) {
-        setUnauthorized(true);
+        setFailure(reason ?? "not-admin");
       } else {
         router.replace("/admin");
       }
@@ -178,12 +179,24 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {unauthorized && (
+          {failure === "not-admin" && (
             <Alert variant="destructive" className="mb-4">
               <AlertTitle>Not authorized</AlertTitle>
               <AlertDescription>
                 This account is not registered as an admin. Contact an existing
                 admin to be added.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {failure === "rules-blocked" && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTitle>Firestore rules are blocking sign-in</AlertTitle>
+              <AlertDescription>
+                You signed in successfully, but Firestore refused to return your
+                admin record. This usually means the project&apos;s security
+                rules haven&apos;t been deployed yet — deploy{" "}
+                <code>firestore.rules</code> and try again.
               </AlertDescription>
             </Alert>
           )}
@@ -219,7 +232,7 @@ export default function LoginPage() {
                             type="button"
                             className="text-xs font-medium text-primary hover:underline"
                             onClick={() => {
-                              setUnauthorized(false);
+                              setFailure(null);
                               setMode("reset");
                             }}
                           >

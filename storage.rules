@@ -2,6 +2,8 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     match /company-logos/{allPaths=**} {
+      // Anonymous read is for the separate public IREWIN job site, which
+      // displays these logos on its listings. Uploads stay admin-only.
       allow read: if true;
       allow write: if request.auth != null &&
         firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid));

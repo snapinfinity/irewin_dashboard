@@ -24,6 +24,7 @@ import {
   updateCompany,
   uploadCompanyLogo,
 } from "@/lib/queries/companies";
+import { useAuth } from "@/lib/auth/useAuth";
 import type { Company } from "@/types/company";
 
 const schema = z.object({
@@ -44,6 +45,7 @@ export function CompanyForm({
   company: Company | null;
   onSaved: () => void;
 }) {
+  const { user } = useAuth();
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(company?.logoURL ?? null);
   const [saving, setSaving] = useState(false);
@@ -79,7 +81,13 @@ export function CompanyForm({
         });
         toast.success("Company updated");
       } else {
-        const id = await createCompany({ name: values.name, website: values.website || null, logoURL: null });
+        if (!user) return;
+        const id = await createCompany({
+          name: values.name,
+          website: values.website || null,
+          logoURL: null,
+          createdBy: user.uid,
+        });
         if (logoFile) {
           const logoURL = await uploadCompanyLogo(id, logoFile);
           await updateCompany(id, { logoURL });

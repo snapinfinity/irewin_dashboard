@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "seed:admin": "tsx scripts/seed-admin.ts",
+    "check:rules": "node scripts/check-rules.mjs",
     "emulators": "firebase emulators:start --import=./.firebase-emulator-data --export-on-exit"
   },
   "dependencies": {

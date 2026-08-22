@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { deleteCategory, setCategoryEnabled } from "@/lib/queries/categories";
 import { getCategoryJobCount } from "@/lib/queries/jobs";
+import { useAuth } from "@/lib/auth/useAuth";
 import type { Category } from "@/types/category";
 
 const AVATAR_TONES = [
@@ -34,6 +35,7 @@ export function CategoriesTable({
   onEdit: (category: Category) => void;
   onChanged: () => void;
 }) {
+  const { user, isAdminOrAbove } = useAuth();
   const [jobCounts, setJobCounts] = useState<Record<string, number>>({});
   const [deleting, setDeleting] = useState<Category | null>(null);
 
@@ -63,66 +65,78 @@ export function CategoriesTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {categories.map((category, index) => (
-            <TableRow key={category.slug}>
-              <TableCell className="font-medium">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`flex size-8 shrink-0 items-center justify-center rounded-full ${AVATAR_TONES[index % AVATAR_TONES.length]}`}
-                  >
-                    <Tag className="size-4" />
+          {categories.map((category, index) => {
+            // Mirrors firestore.rules: Admin/above can edit anything, an
+            // Employee only their own.
+            const canEdit = isAdminOrAbove || category.createdBy === user?.uid;
+            return (
+              <TableRow key={category.slug}>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`flex size-8 shrink-0 items-center justify-center rounded-full ${AVATAR_TONES[index % AVATAR_TONES.length]}`}
+                    >
+                      <Tag className="size-4" />
+                    </div>
+                    {category.name}
                   </div>
-                  {category.name}
-                </div>
-              </TableCell>
-              <TableCell>
-                <div className="flex flex-wrap gap-1">
-                  {category.subcategories.length === 0 ? (
-                    <span className="text-sm text-muted-foreground">-</span>
-                  ) : (
-                    category.subcategories.map((sub) => (
-                      <Badge key={sub.slug} variant="secondary">
-                        {sub.name}
-                      </Badge>
-                    ))
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {category.subcategories.length === 0 ? (
+                      <span className="text-sm text-muted-foreground">-</span>
+                    ) : (
+                      category.subcategories.map((sub) => (
+                        <Badge key={sub.slug} variant="secondary">
+                          {sub.name}
+                        </Badge>
+                      ))
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="font-normal text-muted-foreground">
+                    {jobCounts[category.slug] ?? "-"} jobs
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Switch
+                    checked={category.enabled}
+                    disabled={!canEdit}
+                    onCheckedChange={async (checked) => {
+                      await setCategoryEnabled(category.slug, checked);
+                      onChanged();
+                    }}
+                  />
+                </TableCell>
+                <TableCell>
+                  {canEdit && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon-sm">
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {canEdit && (
+                          <DropdownMenuItem onClick={() => onEdit(category)}>
+                            <Pencil className="size-4" />
+                            Edit
+                          </DropdownMenuItem>
+                        )}
+                        {isAdminOrAbove && (
+                          <DropdownMenuItem variant="destructive" onClick={() => setDeleting(category)}>
+                            <Trash2 className="size-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
-                </div>
-              </TableCell>
-              <TableCell>
-                <Badge variant="outline" className="font-normal text-muted-foreground">
-                  {jobCounts[category.slug] ?? "-"} jobs
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <Switch
-                  checked={category.enabled}
-                  onCheckedChange={async (checked) => {
-                    await setCategoryEnabled(category.slug, checked);
-                    onChanged();
-                  }}
-                />
-              </TableCell>
-              <TableCell>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon-sm">
-                      <MoreHorizontal className="size-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => onEdit(category)}>
-                      <Pencil className="size-4" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem variant="destructive" onClick={() => setDeleting(category)}>
-                      <Trash2 className="size-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))}
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
 

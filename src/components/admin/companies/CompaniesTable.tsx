@@ -14,6 +14,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { deleteCompany, deleteCompanyLogo } from "@/lib/queries/companies";
+import { useAuth } from "@/lib/auth/useAuth";
 import type { Company } from "@/types/company";
 
 export function CompaniesTable({
@@ -25,6 +26,7 @@ export function CompaniesTable({
   onEdit: (company: Company) => void;
   onChanged: () => void;
 }) {
+  const { user, isAdminOrAbove } = useAuth();
   const [deleting, setDeleting] = useState<Company | null>(null);
 
   return (
@@ -39,45 +41,54 @@ export function CompaniesTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {companies.map((company) => (
-            <TableRow key={company.id}>
-              <TableCell>
-                <Avatar className="size-8 rounded-md">
-                  <AvatarImage src={company.logoURL ?? undefined} alt={company.name} />
-                  <AvatarFallback className="rounded-md">{company.name[0]?.toUpperCase()}</AvatarFallback>
-                </Avatar>
-              </TableCell>
-              <TableCell className="font-medium">{company.name}</TableCell>
-              <TableCell className="text-muted-foreground">
-                {company.website ? (
-                  <a href={company.website} target="_blank" rel="noreferrer" className="hover:underline">
-                    {company.website}
-                  </a>
-                ) : (
-                  "-"
-                )}
-              </TableCell>
-              <TableCell>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon-sm">
-                      <MoreHorizontal className="size-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => onEdit(company)}>
-                      <Pencil className="size-4" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem variant="destructive" onClick={() => setDeleting(company)}>
-                      <Trash2 className="size-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))}
+          {companies.map((company) => {
+            // Mirrors firestore.rules: Admin/above can edit anything, an
+            // Employee only their own.
+            const canEdit = isAdminOrAbove || company.createdBy === user?.uid;
+            return (
+              <TableRow key={company.id}>
+                <TableCell>
+                  <Avatar className="size-8 rounded-md">
+                    <AvatarImage src={company.logoURL ?? undefined} alt={company.name} />
+                    <AvatarFallback className="rounded-md">{company.name[0]?.toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                </TableCell>
+                <TableCell className="font-medium">{company.name}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {company.website ? (
+                    <a href={company.website} target="_blank" rel="noreferrer" className="hover:underline">
+                      {company.website}
+                    </a>
+                  ) : (
+                    "-"
+                  )}
+                </TableCell>
+                <TableCell>
+                  {canEdit && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon-sm">
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onEdit(company)}>
+                          <Pencil className="size-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        {isAdminOrAbove && (
+                          <DropdownMenuItem variant="destructive" onClick={() => setDeleting(company)}>
+                            <Trash2 className="size-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
 

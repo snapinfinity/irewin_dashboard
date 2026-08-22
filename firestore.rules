@@ -6,9 +6,24 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isAdmin() {
+    // Any of the three roles (owner/admin/employee) — replaces the old
+    // isAdmin() name now that "admin" is one specific tier, not "any staff".
+    function isStaff() {
       return isSignedIn() &&
         exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function role() {
+      return get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role;
+    }
+
+    // Super Admin or Admin — full content CRUD (including delete). Whether
+    // an Admin may remove another Admin (Super Admin only) is enforced in
+    // the /api/admin/remove-admin route, not here — every write to the
+    // admins collection goes through the Admin SDK regardless of role (see
+    // below), so there's no per-role Firestore rule to express for that.
+    function isAdminOrAbove() {
+      return isStaff() && (role() == 'owner' || role() == 'admin');
     }
 
     // --- admins ---
@@ -17,28 +32,67 @@ service cloud.firestore {
       // No listing, no reading others' docs -> collection is never publicly enumerable.
       allow get: if isSignedIn() && request.auth.uid == uid;
       allow list: if false;
-      // No client writes at all. Admin docs are created only via the seed
-      // script (Admin SDK, bypasses rules) or manually in the console, so an
-      // authenticated Google user can never self-grant admin access.
+      // No client writes at all, any role included. Admin/Employee docs are
+      // only ever created/removed via the Admin SDK — the seed script
+      // (initial Super Admin bootstrap) or the /api/admin/add-admin and
+      // /api/admin/remove-admin routes (which independently re-verify the
+      // caller's role server-side before touching this collection).
       allow write: if false;
     }
 
+    // The anonymous read grants below are NOT for this app — this project is
+    // the admin dashboard and every one of its pages requires a signed-in
+    // staff member. They exist so the separate public IREWIN job site (its
+    // own project) can read listings without authenticating.
+    //
+    // Write model, identical across jobs/categories/companies:
+    //   create — any staff member, and only as themselves (createdBy must be
+    //            their own uid, so nobody can create a doc "owned" by someone
+    //            else).
+    //   update — Admin or above can edit anything; an Employee can only edit
+    //            a doc they created (and can't reassign createdBy to dodge
+    //            that check).
+    //   delete — Admin or above only. An Employee can never delete, even
+    //            their own doc — enforced here, not just by hiding the
+    //            button client-side.
+
     // --- jobs ---
     match /jobs/{jobId} {
-      allow get, list: if resource.data.status == 'published' || isAdmin();
-      allow create, update, delete: if isAdmin();
+      // Public site sees published jobs only; drafts/unpublished/expired
+      // are visible to staff alone.
+      allow get, list: if resource.data.status == 'published' || isStaff();
+      allow create: if isStaff() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isAdminOrAbove() ||
+        (isStaff() &&
+          resource.data.createdBy == request.auth.uid &&
+          request.resource.data.createdBy == resource.data.createdBy);
+      allow delete: if isAdminOrAbove();
     }
 
     // --- categories ---
     match /categories/{categoryId} {
-      allow get, list: if true; // needed for public filter UI
-      allow write: if isAdmin();
+      // Public site's category listing + filters.
+      // TODO when the public site ships: consider restricting anonymous reads
+      // to `resource.data.enabled == true` so disabled categories can't leak.
+      allow get, list: if true;
+      allow create: if isStaff() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isAdminOrAbove() ||
+        (isStaff() &&
+          resource.data.createdBy == request.auth.uid &&
+          request.resource.data.createdBy == resource.data.createdBy);
+      allow delete: if isAdminOrAbove();
     }
 
     // --- companies ---
     match /companies/{companyId} {
-      allow get, list: if true; // needed to render company name/logo on public job cards
-      allow write: if isAdmin();
+      // Public site renders company name/logo on job listings.
+      allow get, list: if true;
+      allow create: if isStaff() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isAdminOrAbove() ||
+        (isStaff() &&
+          resource.data.createdBy == request.auth.uid &&
+          request.resource.data.createdBy == resource.data.createdBy);
+      allow delete: if isAdminOrAbove();
     }
   }
 }

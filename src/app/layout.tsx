@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     default: "IREWIN Admin",
     template: "%s | IREWIN",
   },
-  description: "Job listing management dashboard and public job board.",
+  description: "Admin dashboard for managing IREWIN job listings.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

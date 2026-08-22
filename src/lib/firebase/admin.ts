@@ -1,5 +1,9 @@
-import "server-only";
-
+// No "server-only" import guard here: this module is also loaded directly
+// by scripts/seed-admin.ts as a plain Node script (outside Next's bundler),
+// where server-only's package export condition doesn't apply and it throws
+// unconditionally. Its only two importers (the list-admins API route and
+// the seed script) are both legitimately server-side, so the guard added no
+// real protection — nothing else in the app imports this file.
 import { existsSync, readFileSync } from "node:fs";
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getAuth as getAdminAuth } from "firebase-admin/auth";
@@ -35,6 +39,23 @@ function createAdminApp(): App {
   return initializeApp({ credential: cert(serviceAccount) });
 }
 
-export const adminApp = createAdminApp();
-export const adminAuth = getAdminAuth(adminApp);
-export const adminDb = getAdminFirestore(adminApp);
+/**
+ * Initialized lazily rather than at module load: `next build` collects page
+ * data by importing route modules, and eager init would make the build fail
+ * on any machine without service-account credentials. Callers hit this from
+ * inside a request/script, where credentials are genuinely required.
+ */
+let cachedApp: App | undefined;
+
+function getAdminApp(): App {
+  cachedApp ??= createAdminApp();
+  return cachedApp;
+}
+
+export function adminAuth() {
+  return getAdminAuth(getAdminApp());
+}
+
+export function adminDb() {
+  return getAdminFirestore(getAdminApp());
+}

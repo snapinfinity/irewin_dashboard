@@ -21,6 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { SubcategoryEditor } from "@/components/admin/categories/SubcategoryEditor";
 import { createCategory, updateCategory } from "@/lib/queries/categories";
 import { slugify } from "@/lib/utils/slugify";
+import { useAuth } from "@/lib/auth/useAuth";
 import type { Category, Subcategory } from "@/types/category";
 
 const schema = z.object({
@@ -41,6 +42,7 @@ export function CategoryForm({
   category: Category | null;
   onSaved: () => void;
 }) {
+  const { user } = useAuth();
   const [subcategories, setSubcategories] = useState<Subcategory[]>(category?.subcategories ?? []);
   const [saving, setSaving] = useState(false);
 
@@ -64,11 +66,13 @@ export function CategoryForm({
         });
         toast.success("Category updated");
       } else {
+        if (!user) return;
         await createCategory({
           name: values.name,
           slug: slugify(values.name),
           enabled: values.enabled,
           subcategories: cleanSubcategories,
+          createdBy: user.uid,
         });
         toast.success("Category created");
       }
@@ -120,7 +124,7 @@ export function CategoryForm({
                   <div>
                     <FormLabel>Enabled</FormLabel>
                     <p className="text-sm text-muted-foreground">
-                      Disabled categories are hidden from the public site.
+                      Disabled categories are hidden on the public job site.
                     </p>
                   </div>
                   <FormControl>
