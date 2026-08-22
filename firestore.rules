@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // --- admins ---
+    match /admins/{uid} {
+      // A user may only read THEIR OWN admin doc (to check their own status).
+      // No listing, no reading others' docs -> collection is never publicly enumerable.
+      allow get: if isSignedIn() && request.auth.uid == uid;
+      allow list: if false;
+      // No client writes at all. Admin docs are created only via the seed
+      // script (Admin SDK, bypasses rules) or manually in the console, so an
+      // authenticated Google user can never self-grant admin access.
+      allow write: if false;
+    }
+
+    // --- jobs ---
+    match /jobs/{jobId} {
+      allow get, list: if resource.data.status == 'published' || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- categories ---
+    match /categories/{categoryId} {
+      allow get, list: if true; // needed for public filter UI
+      allow write: if isAdmin();
+    }
+
+    // --- companies ---
+    match /companies/{companyId} {
+      allow get, list: if true; // needed to render company name/logo on public job cards
+      allow write: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(node scripts/validate_palette.js \"#6E56CF,#12A594,#e87ba4,#eda100\" --mode light --surface \"#ffffff\")"
+    ]
+  }
+}
