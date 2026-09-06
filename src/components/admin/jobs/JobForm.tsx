@@ -169,7 +169,7 @@ export function JobForm({ job }: { job: Job | null }) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-6 pb-24">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Basics</CardTitle>
@@ -516,7 +516,7 @@ export function JobForm({ job }: { job: Job | null }) {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end gap-3">
+        <div className="fixed inset-x-0 bottom-0 z-40 flex justify-end gap-3 border-t bg-background/95 px-4 py-4 backdrop-blur supports-backdrop-filter:bg-background/80 md:left-60 md:px-6">
           <Button type="button" variant="outline" onClick={() => router.push("/admin/jobs")}>
             Cancel
           </Button>

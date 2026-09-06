@@ -14,6 +14,7 @@ export function useJobsQuery(options: {
   const { filters, sortField, sortDirection, pageSize } = options;
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const cursorStack = useRef<(DocumentSnapshot | null)[]>([null]);
@@ -23,19 +24,28 @@ export function useJobsQuery(options: {
   const loadPage = useCallback(
     async (pageIndex: number) => {
       setLoading(true);
+      setError(null);
       const cursor = cursorStack.current[pageIndex - 1] ?? null;
-      const result = await getJobsPage({
-        filters,
-        sortField,
-        sortDirection,
-        pageSize,
-        cursor,
-      });
-      cursorStack.current[pageIndex] = result.lastDoc;
-      setJobs(result.jobs);
-      setHasMore(result.hasMore);
-      setPage(pageIndex);
-      setLoading(false);
+      try {
+        const result = await getJobsPage({
+          filters,
+          sortField,
+          sortDirection,
+          pageSize,
+          cursor,
+        });
+        cursorStack.current[pageIndex] = result.lastDoc;
+        setJobs(result.jobs);
+        setHasMore(result.hasMore);
+        setPage(pageIndex);
+      } catch (err) {
+        console.error("[jobs] Failed to load jobs page:", err);
+        setError(err instanceof Error ? err.message : "Failed to load jobs");
+        setJobs([]);
+        setHasMore(false);
+      } finally {
+        setLoading(false);
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filtersKey, sortField, sortDirection, pageSize],
@@ -55,6 +65,7 @@ export function useJobsQuery(options: {
   return {
     jobs,
     loading,
+    error,
     page,
     hasMore,
     hasPrevious: page > 1,

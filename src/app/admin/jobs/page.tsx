@@ -25,7 +25,7 @@ export default function JobsPage() {
     listCategories().then(setCategories);
   }, []);
 
-  const { jobs, loading, page, hasMore, hasPrevious, refresh, nextPage, previousPage } = useJobsQuery({
+  const { jobs, loading, error, page, hasMore, hasPrevious, refresh, nextPage, previousPage } = useJobsQuery({
     filters,
     sortField: sort.field,
     sortDirection: sort.direction,
@@ -63,6 +63,8 @@ export default function JobsPage() {
                 <Skeleton key={i} className="h-12" />
               ))}
             </div>
+          ) : error ? (
+            <div className="p-6 text-sm text-destructive">{error}</div>
           ) : jobs.length === 0 ? (
             <EmptyState
               icon={Briefcase}

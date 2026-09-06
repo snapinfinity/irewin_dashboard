@@ -33,7 +33,13 @@ export async function verifyCallerIsAdmin(request: Request): Promise<VerifiedCal
   let uid: string;
   try {
     uid = (await adminAuth().verifyIdToken(idToken)).uid;
-  } catch {
+  } catch (err) {
+    // Logged server-side only: could be a genuinely bad/expired token, or the
+    // Admin SDK itself failing to initialize (e.g. missing/malformed
+    // FIREBASE_SERVICE_ACCOUNT_JSON on this deployment) — both throw here,
+    // and distinguishing them from the response would leak internals to an
+    // unauthenticated caller, so the client only ever sees "Invalid token".
+    console.error("[verifyAdminRequest] Token verification failed:", err);
     throw new AuthRequestError(401, "Invalid token");
   }
 

@@ -46,14 +46,14 @@ export function AdminSidebar() {
   }
 
   return (
-    <aside className="hidden w-60 shrink-0 flex-col bg-sidebar md:flex">
-      <div className="flex h-16 items-center gap-2 px-5">
+    <aside className="hidden h-screen w-60 shrink-0 flex-col bg-sidebar md:flex">
+      <div className="flex h-16 shrink-0 items-center gap-2 px-5">
         <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <Briefcase className="size-4" />
         </div>
         <span className="font-semibold">IREWIN</span>
       </div>
-      <nav className="flex-1 space-y-6 px-4 py-2">
+      <nav className="flex-1 space-y-6 overflow-y-auto px-4 py-2">
         <div>
           <p className="px-3.5 pb-2 text-xs font-medium tracking-wide text-muted-foreground">
             GENERAL

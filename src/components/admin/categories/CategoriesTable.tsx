@@ -14,6 +14,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { SubcategoryBadgeList } from "@/components/admin/categories/SubcategoryBadgeList";
 import { deleteCategory, setCategoryEnabled } from "@/lib/queries/categories";
 import { getCategoryJobCount } from "@/lib/queries/jobs";
 import { useAuth } from "@/lib/auth/useAuth";
@@ -81,18 +82,8 @@ export function CategoriesTable({
                     {category.name}
                   </div>
                 </TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {category.subcategories.length === 0 ? (
-                      <span className="text-sm text-muted-foreground">-</span>
-                    ) : (
-                      category.subcategories.map((sub) => (
-                        <Badge key={sub.slug} variant="secondary">
-                          {sub.name}
-                        </Badge>
-                      ))
-                    )}
-                  </div>
+                <TableCell className="max-w-xs">
+                  <SubcategoryBadgeList subcategories={category.subcategories} />
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline" className="font-normal text-muted-foreground">
