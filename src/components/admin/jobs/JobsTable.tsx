@@ -98,13 +98,12 @@ export function JobsTable({ jobs, onChanged }: { jobs: Job[]; onChanged: () => v
         <ConfirmDialog
           open={!!deleting}
           onOpenChange={(open) => !open && setDeleting(null)}
-          title={`Delete "${deleting.title}"?`}
-          description="This permanently removes the job listing. This cannot be undone."
-          confirmLabel="Delete"
-          destructive
+          title={`Move "${deleting.title}" to trash?`}
+          description="The job will be hidden from listings and can be restored from Trash."
+          confirmLabel="Move to Trash"
           onConfirm={async () => {
             await deleteJob(deleting.id);
-            toast.success("Job deleted");
+            toast.success("Job moved to trash");
             onChanged();
           }}
         />

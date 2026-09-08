@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { deleteCompany, deleteCompanyLogo } from "@/lib/queries/companies";
+import { deleteCompany } from "@/lib/queries/companies";
 import { useAuth } from "@/lib/auth/useAuth";
 import type { Company } from "@/types/company";
 
@@ -96,14 +96,13 @@ export function CompaniesTable({
         <ConfirmDialog
           open={!!deleting}
           onOpenChange={(open) => !open && setDeleting(null)}
-          title={`Delete "${deleting.name}"?`}
-          description="This cannot be undone. Jobs referencing this company will keep their denormalized name/logo but the company record will be gone."
-          confirmLabel="Delete"
-          destructive
+          title={`Move "${deleting.name}" to trash?`}
+          description="Jobs referencing this company keep their denormalized name/logo. The company can be restored from Trash."
+          confirmLabel="Move to Trash"
           onConfirm={async () => {
-            if (deleting.logoURL) await deleteCompanyLogo(deleting.logoURL);
+            // logo intentionally kept — a restored company should keep it.
             await deleteCompany(deleting.id);
-            toast.success("Company deleted");
+            toast.success("Company moved to trash");
             onChanged();
           }}
         />

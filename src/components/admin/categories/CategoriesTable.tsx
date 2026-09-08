@@ -135,13 +135,12 @@ export function CategoriesTable({
         <ConfirmDialog
           open={!!deleting}
           onOpenChange={(open) => !open && setDeleting(null)}
-          title={`Delete "${deleting.name}"?`}
-          description="Jobs already assigned to this category will keep their denormalized category name but the category record will be gone."
-          confirmLabel="Delete"
-          destructive
+          title={`Move "${deleting.name}" to trash?`}
+          description="Jobs already assigned to this category keep their denormalized category name. The category can be restored from Trash."
+          confirmLabel="Move to Trash"
           onConfirm={async () => {
             await deleteCategory(deleting.slug);
-            toast.success("Category deleted");
+            toast.success("Category moved to trash");
             onChanged();
           }}
         />

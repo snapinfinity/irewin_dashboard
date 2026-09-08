@@ -8,8 +8,10 @@ import {
   LayoutDashboard,
   Settings,
   Tag,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth/useAuth";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -19,11 +21,18 @@ const NAV_ITEMS = [
 ];
 
 const SUPPORT_ITEMS = [
+  { href: "/admin/trash", label: "Trash", icon: Trash2 },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const { isAdminOrAbove } = useAuth();
+  // Trash is Admin-or-above only (mirrors delete access) — an Employee would
+  // otherwise see a link to a page that just tells them they can't use it.
+  const supportItems = isAdminOrAbove
+    ? SUPPORT_ITEMS
+    : SUPPORT_ITEMS.filter((item) => item.href !== "/admin/trash");
 
   function renderItem(item: (typeof NAV_ITEMS)[number]) {
     const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
@@ -64,7 +73,7 @@ export function AdminSidebar() {
           <p className="px-3.5 pb-2 text-xs font-medium tracking-wide text-muted-foreground">
             SUPPORT
           </p>
-          <div className="space-y-1">{SUPPORT_ITEMS.map(renderItem)}</div>
+          <div className="space-y-1">{supportItems.map(renderItem)}</div>
         </div>
       </nav>
     </aside>

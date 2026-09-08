@@ -1,7 +1,6 @@
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -22,9 +21,17 @@ import type { Company, CompanyInput } from "@/types/company";
 
 const companiesCol = () => collection(db, "companies").withConverter(companyConverter);
 
-export async function listCompanies(): Promise<Company[]> {
+async function fetchAllCompanies(): Promise<Company[]> {
   const snap = await getDocs(query(companiesCol(), orderBy("name", "asc")));
   return snap.docs.map((d) => d.data());
+}
+
+export async function listCompanies(): Promise<Company[]> {
+  return (await fetchAllCompanies()).filter((c) => !c.isDeleted);
+}
+
+export async function getDeletedCompanies(): Promise<Company[]> {
+  return (await fetchAllCompanies()).filter((c) => c.isDeleted);
 }
 
 export async function getCompanyById(id: string): Promise<Company | null> {
@@ -35,6 +42,8 @@ export async function getCompanyById(id: string): Promise<Company | null> {
 export async function createCompany(input: CompanyInput): Promise<string> {
   const ref = await addDoc(collection(db, "companies"), {
     ...input,
+    isDeleted: false,
+    deletedAt: null,
     createdAt: serverTimestamp(),
   });
   return ref.id;
@@ -45,7 +54,11 @@ export async function updateCompany(id: string, patch: Partial<CompanyInput>): P
 }
 
 export async function deleteCompany(id: string): Promise<void> {
-  await deleteDoc(doc(db, "companies", id));
+  await updateDoc(doc(db, "companies", id), { isDeleted: true, deletedAt: serverTimestamp() });
+}
+
+export async function restoreCompany(id: string): Promise<void> {
+  await updateDoc(doc(db, "companies", id), { isDeleted: false, deletedAt: null });
 }
 
 export async function uploadCompanyLogo(companyId: string, file: File): Promise<string> {

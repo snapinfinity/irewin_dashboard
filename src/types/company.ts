@@ -8,6 +8,8 @@ export interface Company {
   createdAt: Timestamp;
   /** uid of the admin/employee who created it — lets an Employee edit only their own. */
   createdBy: string;
+  isDeleted: boolean;
+  deletedAt: Timestamp | null;
 }
 
-export type CompanyInput = Omit<Company, "id" | "createdAt">;
+export type CompanyInput = Omit<Company, "id" | "createdAt" | "isDeleted" | "deletedAt">;

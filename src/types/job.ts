@@ -47,6 +47,8 @@ export interface Job {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   createdBy: string;
+  isDeleted: boolean;
+  deletedAt: Timestamp | null;
 }
 
 export type JobInput = Omit<
@@ -61,4 +63,6 @@ export type JobInput = Omit<
   | "companyLogoURL"
   | "categoryName"
   | "subcategoryName"
+  | "isDeleted"
+  | "deletedAt"
 >;

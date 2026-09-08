@@ -1,8 +1,13 @@
 import { collection, getCountFromServer, query } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
-import { DASHBOARD_AGGREGATION_LIMIT } from "@/lib/constants";
-import { getJobCounts, getJobsForAggregation } from "@/lib/queries/jobs";
-import type { EmploymentType } from "@/types/job";
+import { EMPLOYMENT_TYPE_LABELS, EMPLOYMENT_TYPE_VALUES } from "@/lib/constants";
+import { listCategories } from "@/lib/queries/categories";
+import {
+  getCategoryJobCount,
+  getEmploymentTypeJobCounts,
+  getJobCounts,
+  getJobLocationCounts,
+} from "@/lib/queries/jobs";
 
 export interface DashboardStats {
   totalJobs: number;
@@ -45,46 +50,39 @@ export interface JobsAggregations {
 }
 
 /**
- * Client-side aggregation over a bounded fetch of jobs — see the tradeoff
- * documented on getJobsForAggregation(). Top-8 locations shown, rest folded
- * into "Other" to keep the chart legible.
+ * Category and Employment Type are bounded, enumerable sets, so each is one
+ * cheap getCountFromServer() per possible value — exact at any job-count
+ * scale, no full-collection reads. Location is unbounded free text with no
+ * fixed list to loop over, so it reads the maintained jobLocationStats
+ * counters instead (see src/lib/queries/jobs.ts) — bounded by distinct
+ * locations, not total jobs. Top-8 locations shown, rest folded into "Other"
+ * to keep the chart legible.
  */
 export async function getJobsAggregations(): Promise<JobsAggregations> {
-  const jobs = await getJobsForAggregation(DASHBOARD_AGGREGATION_LIMIT);
+  const categories = await listCategories();
+  const [categoryCounts, locationCounts, employmentCounts] = await Promise.all([
+    Promise.all(categories.map((c) => getCategoryJobCount(c.slug))),
+    getJobLocationCounts(),
+    getEmploymentTypeJobCounts(),
+  ]);
 
-  const byCategoryMap = new Map<string, AggregationEntry>();
-  const byLocationMap = new Map<string, number>();
-  const byEmploymentTypeMap = new Map<EmploymentType, number>();
-
-  for (const job of jobs) {
-    const existing = byCategoryMap.get(job.category);
-    if (existing) {
-      existing.count += 1;
-    } else {
-      byCategoryMap.set(job.category, { key: job.category, label: job.categoryName, count: 1 });
-    }
-
-    byLocationMap.set(job.location, (byLocationMap.get(job.location) ?? 0) + 1);
-    byEmploymentTypeMap.set(job.employmentType, (byEmploymentTypeMap.get(job.employmentType) ?? 0) + 1);
-  }
-
-  const byLocationSorted = Array.from(byLocationMap.entries())
-    .map(([key, count]) => ({ key, label: key, count }))
+  const byCategory = categories
+    .map((c, i) => ({ key: c.slug, label: c.name, count: categoryCounts[i] }))
+    .filter((e) => e.count > 0)
     .sort((a, b) => b.count - a.count);
 
+  const byLocationSorted = locationCounts
+    .map((e) => ({ key: e.location, label: e.location, count: e.count }))
+    .sort((a, b) => b.count - a.count);
   const topLocations = byLocationSorted.slice(0, 8);
   const otherCount = byLocationSorted.slice(8).reduce((sum, e) => sum + e.count, 0);
   const byLocation = otherCount > 0 ? [...topLocations, { key: "other", label: "Other", count: otherCount }] : topLocations;
 
-  const byEmploymentType = Array.from(byEmploymentTypeMap.entries()).map(([key, count]) => ({
-    key,
-    label: key,
-    count,
+  const byEmploymentType = EMPLOYMENT_TYPE_VALUES.map((type) => ({
+    key: type,
+    label: EMPLOYMENT_TYPE_LABELS[type],
+    count: employmentCounts[type],
   }));
 
-  return {
-    byCategory: Array.from(byCategoryMap.values()).sort((a, b) => b.count - a.count),
-    byLocation,
-    byEmploymentType,
-  };
+  return { byCategory, byLocation, byEmploymentType };
 }

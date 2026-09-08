@@ -26,6 +26,16 @@ service cloud.firestore {
       return isStaff() && (role() == 'owner' || role() == 'admin');
     }
 
+    // Soft delete ("trash") sets isDeleted instead of removing the document.
+    // Since that happens through `update`, an Employee's existing "may edit
+    // my own doc" allowance would otherwise let them soft-delete/restore
+    // their own docs too — this guard keeps that Admin-or-above-only, same
+    // as hard delete always was. get(field, default) is required (not bare
+    // field access) since most existing docs predate this field entirely.
+    function isDeletedUnchanged() {
+      return request.resource.data.get('isDeleted', false) == resource.data.get('isDeleted', false);
+    }
+
     // --- admins ---
     match /admins/{uid} {
       // A user may only read THEIR OWN admin doc (to check their own status).
@@ -58,41 +68,63 @@ service cloud.firestore {
 
     // --- jobs ---
     match /jobs/{jobId} {
-      // Public site sees published jobs only; drafts/unpublished/expired
-      // are visible to staff alone.
-      allow get, list: if resource.data.status == 'published' || isStaff();
+      // Public site sees published, non-trashed jobs only; drafts/
+      // unpublished/expired/soft-deleted are visible to staff alone.
+      allow get, list: if (resource.data.status == 'published' &&
+        resource.data.get('isDeleted', false) == false) || isStaff();
       allow create: if isStaff() && request.resource.data.createdBy == request.auth.uid;
       allow update: if isAdminOrAbove() ||
         (isStaff() &&
           resource.data.createdBy == request.auth.uid &&
-          request.resource.data.createdBy == resource.data.createdBy);
+          request.resource.data.createdBy == resource.data.createdBy &&
+          isDeletedUnchanged());
       allow delete: if isAdminOrAbove();
     }
 
     // --- categories ---
     match /categories/{categoryId} {
-      // Public site's category listing + filters.
-      // TODO when the public site ships: consider restricting anonymous reads
-      // to `resource.data.enabled == true` so disabled categories can't leak.
-      allow get, list: if true;
+      // Public site's category listing + filters. Soft-deleted categories
+      // are excluded for the public (even though that site is a separate
+      // codebase we don't control the read side of), but staff must still
+      // be able to read them — otherwise the admin dashboard's own Trash
+      // page couldn't list or restore a soft-deleted category.
+      // TODO when the public site ships: consider also restricting to
+      // `resource.data.enabled == true` so disabled categories can't leak.
+      allow get, list: if resource.data.get('isDeleted', false) == false || isStaff();
       allow create: if isStaff() && request.resource.data.createdBy == request.auth.uid;
       allow update: if isAdminOrAbove() ||
         (isStaff() &&
           resource.data.createdBy == request.auth.uid &&
-          request.resource.data.createdBy == resource.data.createdBy);
+          request.resource.data.createdBy == resource.data.createdBy &&
+          isDeletedUnchanged());
       allow delete: if isAdminOrAbove();
     }
 
     // --- companies ---
     match /companies/{companyId} {
-      // Public site renders company name/logo on job listings.
-      allow get, list: if true;
+      // Public site renders company name/logo on job listings. Soft-deleted
+      // companies are excluded for the public, but staff must still be able
+      // to read them for the Trash page — same reasoning as categories above.
+      allow get, list: if resource.data.get('isDeleted', false) == false || isStaff();
       allow create: if isStaff() && request.resource.data.createdBy == request.auth.uid;
       allow update: if isAdminOrAbove() ||
         (isStaff() &&
           resource.data.createdBy == request.auth.uid &&
-          request.resource.data.createdBy == resource.data.createdBy);
+          request.resource.data.createdBy == resource.data.createdBy &&
+          isDeletedUnchanged());
       allow delete: if isAdminOrAbove();
+    }
+
+    // --- jobLocationStats ---
+    // Internal aggregate for the admin dashboard's Location chart, kept in
+    // sync transactionally by createJob/updateJob/deleteJob/restoreJob. No
+    // public access needed — only the admin dashboard reads it. Any staff
+    // member needs write access here since any staff member can create/edit/
+    // delete their own jobs (same trust level jobs/categories/companies
+    // already extend to staff).
+    match /jobLocationStats/{locationSlug} {
+      allow read: if isStaff();
+      allow write: if isStaff();
     }
   }
 }

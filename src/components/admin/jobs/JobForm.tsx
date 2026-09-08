@@ -107,7 +107,7 @@ export function JobForm({ job }: { job: Job | null }) {
 
   const selectedCategory = categories.find((c) => c.slug === form.watch("category"));
   const availableSubcategories = useMemo(
-    () => selectedCategory?.subcategories ?? [],
+    () => selectedCategory?.subcategories.filter((s) => !s.isDeleted) ?? [],
     [selectedCategory],
   );
 

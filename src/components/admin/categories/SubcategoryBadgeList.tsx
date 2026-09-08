@@ -13,12 +13,13 @@ const MAX_VISIBLE = 3;
  * every row stays the same height regardless of subcategory count.
  */
 export function SubcategoryBadgeList({ subcategories }: { subcategories: Subcategory[] }) {
-  if (subcategories.length === 0) {
+  const active = subcategories.filter((s) => !s.isDeleted);
+  if (active.length === 0) {
     return <span className="text-sm text-muted-foreground">-</span>;
   }
 
-  const visible = subcategories.slice(0, MAX_VISIBLE);
-  const overflow = subcategories.slice(MAX_VISIBLE);
+  const visible = active.slice(0, MAX_VISIBLE);
+  const overflow = active.slice(MAX_VISIBLE);
 
   return (
     <div className="flex flex-wrap items-center gap-1">
@@ -41,10 +42,10 @@ export function SubcategoryBadgeList({ subcategories }: { subcategories: Subcate
           </PopoverTrigger>
           <PopoverContent align="start" className="w-64">
             <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-              All {subcategories.length} subcategories
+              All {active.length} subcategories
             </p>
             <div className="flex max-h-56 flex-wrap gap-1 overflow-y-auto">
-              {subcategories.map((sub) => (
+              {active.map((sub) => (
                 <Badge key={sub.slug} variant="secondary">
                   {sub.name}
                 </Badge>

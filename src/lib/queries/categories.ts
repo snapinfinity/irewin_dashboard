@@ -1,6 +1,5 @@
 import {
   collection,
-  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -17,9 +16,17 @@ import type { Category, CategoryInput } from "@/types/category";
 
 const categoriesCol = () => collection(db, "categories").withConverter(categoryConverter);
 
-export async function listCategories(): Promise<Category[]> {
+async function fetchAllCategories(): Promise<Category[]> {
   const snap = await getDocs(query(categoriesCol(), orderBy("name", "asc")));
   return snap.docs.map((d) => d.data());
+}
+
+export async function listCategories(): Promise<Category[]> {
+  return (await fetchAllCategories()).filter((c) => !c.isDeleted);
+}
+
+export async function getDeletedCategories(): Promise<Category[]> {
+  return (await fetchAllCategories()).filter((c) => c.isDeleted);
 }
 
 export async function getCategoryBySlug(slug: string): Promise<Category | null> {
@@ -32,6 +39,8 @@ export async function createCategory(input: CategoryInput): Promise<string> {
   await setDoc(doc(db, "categories", slug), {
     ...input,
     slug,
+    isDeleted: false,
+    deletedAt: null,
     createdAt: serverTimestamp(),
   });
   return slug;
@@ -46,5 +55,9 @@ export async function setCategoryEnabled(slug: string, enabled: boolean): Promis
 }
 
 export async function deleteCategory(slug: string): Promise<void> {
-  await deleteDoc(doc(db, "categories", slug));
+  await updateDoc(doc(db, "categories", slug), { isDeleted: true, deletedAt: serverTimestamp() });
+}
+
+export async function restoreCategory(slug: string): Promise<void> {
+  await updateDoc(doc(db, "categories", slug), { isDeleted: false, deletedAt: null });
 }

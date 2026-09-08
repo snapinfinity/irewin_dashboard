@@ -56,4 +56,3 @@ export const DEFAULT_CURRENCY = "USD";
 
 export const JOBS_PAGE_SIZE = 20;
 export const RECENT_JOBS_LIMIT = 5;
-export const DASHBOARD_AGGREGATION_LIMIT = 3000;

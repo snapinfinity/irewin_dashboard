@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "seed:admin": "tsx scripts/seed-admin.ts",
+    "recompute:job-location-stats": "tsx scripts/recompute-job-location-stats.ts",
     "check:rules": "node scripts/check-rules.mjs",
     "emulators": "firebase emulators:start --import=./.firebase-emulator-data --export-on-exit"
   },
