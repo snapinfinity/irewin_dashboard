@@ -82,7 +82,9 @@ export async function getJobsAggregations(): Promise<JobsAggregations> {
     key: type,
     label: EMPLOYMENT_TYPE_LABELS[type],
     count: employmentCounts[type],
-  }));
+  }))
+    .filter((e) => e.count > 0)
+    .sort((a, b) => b.count - a.count);
 
   return { byCategory, byLocation, byEmploymentType };
 }

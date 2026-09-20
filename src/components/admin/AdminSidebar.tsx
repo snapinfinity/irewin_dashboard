@@ -25,7 +25,19 @@ const SUPPORT_ITEMS = [
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
-export function AdminSidebar() {
+export function AdminBrand() {
+  return (
+    <div className="flex h-16 shrink-0 items-center gap-2 px-5">
+      <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <Briefcase className="size-4" />
+      </div>
+      <span className="font-semibold">IREWIN</span>
+    </div>
+  );
+}
+
+/** Shared nav item list — used by the desktop sidebar and the mobile Sheet drawer alike. */
+export function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { isAdminOrAbove } = useAuth();
   // Trash is Admin-or-above only (mirrors delete access) — an Employee would
@@ -41,6 +53,7 @@ export function AdminSidebar() {
       <Link
         key={item.href}
         href={item.href}
+        onClick={onNavigate}
         className={cn(
           "flex items-center gap-2.5 rounded-full px-3.5 py-2 text-sm font-medium transition-colors",
           active
@@ -55,27 +68,28 @@ export function AdminSidebar() {
   }
 
   return (
-    <aside className="hidden h-screen w-60 shrink-0 flex-col bg-sidebar md:flex">
-      <div className="flex h-16 shrink-0 items-center gap-2 px-5">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Briefcase className="size-4" />
-        </div>
-        <span className="font-semibold">IREWIN</span>
+    <nav className="flex-1 space-y-6 overflow-y-auto px-4 py-2">
+      <div>
+        <p className="px-3.5 pb-2 text-xs font-medium tracking-wide text-muted-foreground">
+          GENERAL
+        </p>
+        <div className="space-y-1">{NAV_ITEMS.map(renderItem)}</div>
       </div>
-      <nav className="flex-1 space-y-6 overflow-y-auto px-4 py-2">
-        <div>
-          <p className="px-3.5 pb-2 text-xs font-medium tracking-wide text-muted-foreground">
-            GENERAL
-          </p>
-          <div className="space-y-1">{NAV_ITEMS.map(renderItem)}</div>
-        </div>
-        <div>
-          <p className="px-3.5 pb-2 text-xs font-medium tracking-wide text-muted-foreground">
-            SUPPORT
-          </p>
-          <div className="space-y-1">{supportItems.map(renderItem)}</div>
-        </div>
-      </nav>
+      <div>
+        <p className="px-3.5 pb-2 text-xs font-medium tracking-wide text-muted-foreground">
+          SUPPORT
+        </p>
+        <div className="space-y-1">{supportItems.map(renderItem)}</div>
+      </div>
+    </nav>
+  );
+}
+
+export function AdminSidebar() {
+  return (
+    <aside className="hidden h-screen w-60 shrink-0 flex-col bg-sidebar md:flex">
+      <AdminBrand />
+      <AdminNav />
     </aside>
   );
 }

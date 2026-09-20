@@ -65,13 +65,17 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        {loading || !aggregations ? (
-          Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-72" />)
+        {loading || !aggregations || !stats ? (
+          Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-48" />)
         ) : (
           <>
-            <JobsByCategoryChart data={aggregations.byCategory} />
-            <JobsByLocationChart data={aggregations.byLocation} />
-            <JobsByEmploymentTypeChart data={aggregations.byEmploymentType} />
+            <JobsByCategoryChart
+              data={aggregations.byCategory}
+              totalJobs={stats.totalJobs}
+              totalCategories={stats.totalCategories}
+            />
+            <JobsByLocationChart data={aggregations.byLocation} totalJobs={stats.totalJobs} />
+            <JobsByEmploymentTypeChart data={aggregations.byEmploymentType} totalJobs={stats.totalJobs} />
           </>
         )}
       </div>

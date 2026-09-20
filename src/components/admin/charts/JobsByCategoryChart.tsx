@@ -1,62 +1,50 @@
-"use client";
-
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { AggregationEntry } from "@/lib/queries/dashboard";
+import { AllTimeBadge } from "./AllTimeBadge";
+import { ChartInfoNote } from "./ChartInfoNote";
+import { PercentBarRow } from "./PercentBarRow";
 
-export function JobsByCategoryChart({ data }: { data: AggregationEntry[] }) {
-  const chartData = data.slice(0, 8);
+export function JobsByCategoryChart({
+  data,
+  totalJobs,
+  totalCategories,
+}: {
+  data: AggregationEntry[];
+  totalJobs: number;
+  totalCategories: number;
+}) {
+  const emptyCategories = totalCategories - data.length;
+  const note =
+    emptyCategories > 0
+      ? `${emptyCategories} ${emptyCategories === 1 ? "category" : "categories"} ${emptyCategories === 1 ? "has" : "have"} no jobs yet.`
+      : null;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Jobs by Category</CardTitle>
+        <CardDescription>Share of {totalJobs} total jobs</CardDescription>
+        <CardAction>
+          <AllTimeBadge />
+        </CardAction>
       </CardHeader>
-      <CardContent className="h-72">
-        {chartData.length === 0 ? (
-          <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            No job data yet.
-          </p>
+      <CardContent className="flex flex-col gap-3">
+        {totalJobs === 0 ? (
+          <p className="flex h-32 items-center justify-center text-sm text-muted-foreground">No job data yet.</p>
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 16 }}>
-              <CartesianGrid horizontal={false} stroke="var(--border)" />
-              <XAxis
-                type="number"
-                allowDecimals={false}
-                tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
-                axisLine={{ stroke: "var(--border)" }}
-                tickLine={false}
-              />
-              <YAxis
-                type="category"
-                dataKey="label"
-                width={120}
-                tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
-                axisLine={{ stroke: "var(--border)" }}
-                tickLine={false}
-              />
-              <Tooltip
-                cursor={{ fill: "var(--muted)" }}
-                contentStyle={{
-                  background: "var(--popover)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "var(--radius-md)",
-                  color: "var(--popover-foreground)",
-                  fontSize: 12,
-                }}
-              />
-              <Bar dataKey="count" name="Jobs" fill="var(--chart-1)" radius={[0, 4, 4, 0]} barSize={18} />
-            </BarChart>
-          </ResponsiveContainer>
+          <>
+            <div className="flex flex-col divide-y">
+              {data.map((entry) => (
+                <PercentBarRow
+                  key={entry.key}
+                  label={entry.label}
+                  count={entry.count}
+                  percent={Math.round((entry.count / totalJobs) * 100)}
+                />
+              ))}
+            </div>
+            {note && <ChartInfoNote message={note} />}
+          </>
         )}
       </CardContent>
     </Card>

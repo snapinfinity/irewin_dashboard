@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, LogOut, Search } from "lucide-react";
+import { Bell, LogOut, Menu, Search } from "lucide-react";
 import { toast } from "sonner";
+import { AdminBrand, AdminNav } from "@/components/admin/AdminSidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,11 +16,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth/useAuth";
 
 export function AdminHeader() {
   const { user, adminUser, signOut } = useAuth();
   const router = useRouter();
+  const [navOpen, setNavOpen] = useState(false);
 
   async function handleSignOut() {
     await signOut();
@@ -36,7 +40,23 @@ export function AdminHeader() {
     .toUpperCase();
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-4 border-b border-border/60 bg-sidebar px-6">
+    <header className="flex h-16 shrink-0 items-center gap-4 border-b border-border/60 bg-sidebar px-4 md:px-6">
+      <Sheet open={navOpen} onOpenChange={setNavOpen}>
+        <SheetContent side="left" className="w-72 p-0">
+          <SheetTitle className="sr-only">Navigation</SheetTitle>
+          <AdminBrand />
+          <AdminNav onNavigate={() => setNavOpen(false)} />
+        </SheetContent>
+      </Sheet>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="Open menu"
+        className="shrink-0 md:hidden"
+        onClick={() => setNavOpen(true)}
+      >
+        <Menu className="size-5" />
+      </Button>
       <div className="relative hidden max-w-md flex-1 sm:block">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
