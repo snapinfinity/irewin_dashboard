@@ -115,6 +115,32 @@ service cloud.firestore {
       allow delete: if isAdminOrAbove();
     }
 
+    // --- users (public site accounts, Google sign-in) ---
+    // One doc per signed-in visitor of the public IREWIN site, id = their
+    // Firebase Auth uid. Holds their profile, email-marketing consent and
+    // Premium membership. Staff can read all of them (e.g. to export the
+    // opted-in mailing list); nobody can list other users' docs otherwise.
+    match /users/{uid} {
+      function isSelf() {
+        return isSignedIn() && request.auth.uid == uid;
+      }
+      allow get: if isSelf() || isStaff();
+      allow list: if isStaff();
+      // Created by the site on first sign-in, only for yourself and with your own email.
+      allow create: if isSelf() &&
+        request.resource.data.uid == uid &&
+        request.resource.data.email == request.auth.token.email;
+      // You can update your own doc but never change who it belongs to or when it was created.
+      // TEST MODE: users can still write their own `membership` (the "Activate Premium (test)"
+      // button). Once real payments exist, set membership from the server only and add
+      // `&& request.resource.data.membership == resource.data.membership` here.
+      allow update: if (isSelf() &&
+        request.resource.data.uid == resource.data.uid &&
+        request.resource.data.email == resource.data.email &&
+        request.resource.data.createdAt == resource.data.createdAt) || isAdminOrAbove();
+      allow delete: if isAdminOrAbove();
+    }
+
     // --- jobLocationStats ---
     // Internal aggregate for the admin dashboard's Location chart, kept in
     // sync transactionally by createJob/updateJob/deleteJob/restoreJob. No
