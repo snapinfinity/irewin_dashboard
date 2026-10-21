@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { StringListEditor } from "@/components/shared/StringListEditor";
 import {
+  DEFAULT_CURRENCY,
   EMPLOYMENT_TYPE_LABELS,
   EMPLOYMENT_TYPE_VALUES,
   EXPERIENCE_LEVEL_LABELS,
@@ -95,7 +96,7 @@ export function JobForm({ job }: { job: Job | null }) {
       experienceLevel: job?.experienceLevel ?? "mid",
       salaryMin: job?.salaryMin != null ? String(job.salaryMin) : "",
       salaryMax: job?.salaryMax != null ? String(job.salaryMax) : "",
-      currency: job?.currency ?? "USD",
+      currency: job?.currency ?? DEFAULT_CURRENCY,
       description: job?.description ?? "",
       applicationUrl: job?.applicationUrl ?? "",
       applicationDeadline: job?.applicationDeadline
@@ -441,7 +442,7 @@ export function JobForm({ job }: { job: Job | null }) {
                 <FormItem>
                   <FormLabel>Currency</FormLabel>
                   <FormControl>
-                    <Input placeholder="USD" {...field} />
+                    <Input placeholder={DEFAULT_CURRENCY} {...field} />
                   </FormControl>
                 </FormItem>
               )}

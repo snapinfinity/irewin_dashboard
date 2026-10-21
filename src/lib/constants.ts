@@ -52,7 +52,7 @@ export const EXPERIENCE_LEVEL_LABELS: Record<ExperienceLevel, string> = {
   executive: "Executive",
 };
 
-export const DEFAULT_CURRENCY = "USD";
+export const DEFAULT_CURRENCY = "EUR";
 
 export const JOBS_PAGE_SIZE = 20;
 export const RECENT_JOBS_LIMIT = 5;

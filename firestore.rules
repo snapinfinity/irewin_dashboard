@@ -126,19 +126,55 @@ service cloud.firestore {
       }
       allow get: if isSelf() || isStaff();
       allow list: if isStaff();
-      // Created by the site on first sign-in, only for yourself and with your own email.
+      // Created by the site on first sign-in, only for yourself, with your own email
+      // and without Premium.
       allow create: if isSelf() &&
         request.resource.data.uid == uid &&
-        request.resource.data.email == request.auth.token.email;
-      // You can update your own doc but never change who it belongs to or when it was created.
-      // TEST MODE: users can still write their own `membership` (the "Activate Premium (test)"
-      // button). Once real payments exist, set membership from the server only and add
-      // `&& request.resource.data.membership == resource.data.membership` here.
+        request.resource.data.email == request.auth.token.email &&
+        request.resource.data.get('membership', null) == null;
+      // You can update your own doc but never change who it belongs to, when it was
+      // created, or your Premium membership. Membership is only written by the public
+      // site's server (Firebase Admin, after a confirmed Dodo payment) or by admins.
       allow update: if (isSelf() &&
         request.resource.data.uid == resource.data.uid &&
         request.resource.data.email == resource.data.email &&
-        request.resource.data.createdAt == resource.data.createdAt) || isAdminOrAbove();
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.get('membership', null) == resource.data.get('membership', null)) || isAdminOrAbove();
       allow delete: if isAdminOrAbove();
+    }
+
+    // --- reviews (customer reviews on the public IREWIN site) ---
+    // One review per signed-in visitor, id = their uid. Written by the public
+    // site as "pending"; staff approve or reject it in the dashboard, and only
+    // approved reviews are publicly readable (the site queries status ==
+    // 'approved'). Editing your review sends it back to "pending".
+    match /reviews/{uid} {
+      function isAuthor() {
+        return isSignedIn() && request.auth.uid == uid;
+      }
+      // The author always writes the whole doc (setDoc), as pending, with a
+      // fresh updatedAt. Moderation fields are only ever set by staff.
+      function isValidAuthorWrite() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['uid', 'name', 'photoURL', 'rating', 'text', 'status', 'createdAt', 'updatedAt']) &&
+          d.keys().hasAll(['uid', 'name', 'photoURL', 'rating', 'text', 'status', 'createdAt', 'updatedAt']) &&
+          d.uid == uid &&
+          d.status == 'pending' &&
+          d.name is string && d.name.size() > 0 && d.name.size() <= 60 &&
+          (d.photoURL == null || (d.photoURL is string && d.photoURL.size() <= 500)) &&
+          d.rating is int && d.rating >= 1 && d.rating <= 5 &&
+          d.text is string && d.text.size() >= 10 && d.text.size() <= 600 &&
+          d.updatedAt == request.time;
+      }
+      allow get: if resource.data.status == 'approved' || isAuthor() || isStaff();
+      allow list: if resource.data.status == 'approved' || isStaff();
+      allow create: if isAuthor() && isValidAuthorWrite() && request.resource.data.createdAt == request.time;
+      allow update: if (isAuthor() && isValidAuthorWrite() && request.resource.data.createdAt == resource.data.createdAt) ||
+        (isStaff() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedAt', 'reviewedBy']) &&
+          request.resource.data.status in ['pending', 'approved', 'rejected'] &&
+          request.resource.data.reviewedBy == request.auth.uid);
+      allow delete: if isAuthor() || isAdminOrAbove();
     }
 
     // --- jobLocationStats ---

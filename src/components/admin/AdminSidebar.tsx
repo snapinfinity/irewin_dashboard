@@ -6,6 +6,7 @@ import {
   Briefcase,
   Building2,
   LayoutDashboard,
+  MessageSquareQuote,
   Settings,
   Tag,
   Trash2,
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { href: "/admin/jobs", label: "Jobs", icon: Briefcase },
   { href: "/admin/categories", label: "Categories", icon: Tag },
   { href: "/admin/companies", label: "Companies", icon: Building2 },
+  { href: "/admin/reviews", label: "Reviews", icon: MessageSquareQuote },
 ];
 
 const SUPPORT_ITEMS = [

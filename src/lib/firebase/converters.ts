@@ -7,6 +7,7 @@ import type { AdminUser } from "@/types/admin";
 import type { Category } from "@/types/category";
 import type { Company } from "@/types/company";
 import type { Job } from "@/types/job";
+import type { Review } from "@/types/review";
 
 function makeConverter<T extends { id: string }>(): FirestoreDataConverter<T> {
   return {
@@ -24,6 +25,7 @@ function makeConverter<T extends { id: string }>(): FirestoreDataConverter<T> {
 export const jobConverter = makeConverter<Job>();
 export const categoryConverter = makeConverter<Category>();
 export const companyConverter = makeConverter<Company>();
+export const reviewConverter = makeConverter<Review>();
 
 export const adminConverter: FirestoreDataConverter<AdminUser> = {
   toFirestore(value: AdminUser) {
