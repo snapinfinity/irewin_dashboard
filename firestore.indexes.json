@@ -179,6 +179,11 @@
     { "collectionGroup": "jobs", "queryScope": "COLLECTION", "fields": [
       { "fieldPath": "isDeleted", "order": "ASCENDING" },
       { "fieldPath": "deletedAt", "order": "DESCENDING" }
+    ] },
+
+    { "collectionGroup": "reviews", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "status", "order": "ASCENDING" },
+      { "fieldPath": "updatedAt", "order": "DESCENDING" }
     ] }
   ],
   "fieldOverrides": []

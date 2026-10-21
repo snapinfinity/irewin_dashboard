@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Check, MessageSquareQuote, RotateCcw, Star, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,29 +45,27 @@ export default function ReviewsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<Review | null>(null);
 
+  // Each tab loads only its own newest reviews; nothing is counted.
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      setReviews(await listReviews());
+      setReviews(await listReviews(tab));
     } catch (err) {
       console.error(err);
-      toast.error("Couldn't load reviews. Are the latest Firestore rules deployed?");
+      toast.error("Couldn't load reviews. Are the latest Firestore rules and indexes deployed?");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tab]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional fetch-on-mount
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional fetch-on-mount / tab change
     refresh();
   }, [refresh]);
 
-  const counts = useMemo(() => {
-    const c: Record<ReviewStatus, number> = { pending: 0, approved: 0, rejected: 0 };
-    for (const r of reviews) c[r.status] = (c[r.status] ?? 0) + 1;
-    return c;
-  }, [reviews]);
   const shown = reviews.filter((r) => r.status === tab);
+  // After a change the review just leaves this tab locally — no re-read needed.
+  const dropFromTab = (id: string) => setReviews((prev) => prev.filter((r) => r.id !== id));
 
   async function changeStatus(review: Review, status: ReviewStatus) {
     if (!user) return;
@@ -82,7 +79,7 @@ export default function ReviewsPage() {
             ? `Rejected — ${review.name}'s review stays hidden`
             : "Moved back to waiting",
       );
-      await refresh();
+      dropFromTab(review.id);
     } catch (err) {
       console.error(err);
       toast.error("Couldn't update the review.");
@@ -105,11 +102,6 @@ export default function ReviewsPage() {
           {TABS.map((t) => (
             <TabsTrigger key={t.value} value={t.value}>
               {t.label}
-              {counts[t.value] > 0 && (
-                <Badge variant={t.value === "pending" ? "default" : "secondary"} className="ml-1.5">
-                  {counts[t.value]}
-                </Badge>
-              )}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -186,7 +178,7 @@ export default function ReviewsPage() {
           onConfirm={async () => {
             await deleteReview(deleting.id);
             toast.success("Review deleted");
-            await refresh();
+            dropFromTab(deleting.id);
           }}
         />
       )}
