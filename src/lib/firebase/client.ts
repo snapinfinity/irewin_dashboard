@@ -1,7 +1,6 @@
 import { type FirebaseApp, getApps, initializeApp } from "firebase/app";
 import { connectAuthEmulator, getAuth, GoogleAuthProvider } from "firebase/auth";
 import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
-import { connectStorageEmulator, getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -27,7 +26,6 @@ function createFirebaseApp(): FirebaseApp {
 export const firebaseApp = createFirebaseApp();
 export const auth = getAuth(firebaseApp);
 export const db = getFirestore(firebaseApp);
-export const storage = getStorage(firebaseApp);
 export const googleAuthProvider = new GoogleAuthProvider();
 
 // Guard against reconnecting to emulators on every HMR reload in dev.
@@ -38,6 +36,5 @@ declare global {
 if (useEmulators && typeof window !== "undefined" && !globalThis.__FIREBASE_EMULATORS_CONNECTED__) {
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
   connectFirestoreEmulator(db, "127.0.0.1", 8080);
-  connectStorageEmulator(storage, "127.0.0.1", 9199);
   globalThis.__FIREBASE_EMULATORS_CONNECTED__ = true;
 }

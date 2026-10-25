@@ -9,13 +9,7 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
-import {
-  deleteObject,
-  getDownloadURL,
-  ref as storageRef,
-  uploadBytes,
-} from "firebase/storage";
-import { db, storage } from "@/lib/firebase/client";
+import { db } from "@/lib/firebase/client";
 import { companyConverter } from "@/lib/firebase/converters";
 import type { Company, CompanyInput } from "@/types/company";
 
@@ -61,19 +55,48 @@ export async function restoreCompany(id: string): Promise<void> {
   await updateDoc(doc(db, "companies", id), { isDeleted: false, deletedAt: null });
 }
 
-export async function uploadCompanyLogo(companyId: string, file: File): Promise<string> {
-  const ext = file.name.split(".").pop() ?? "png";
-  const path = `company-logos/${companyId}-${Date.now()}.${ext}`;
-  const ref = storageRef(storage, path);
-  await uploadBytes(ref, file);
-  return getDownloadURL(ref);
+// Logos are stored inline on the company doc (and copied onto its jobs) as a
+// small data URL, so the project needs no Firebase Storage bucket. They're
+// shown at most ~56px wide, so 160px covers 2x screens.
+const LOGO_MAX_SIDE = 160;
+// Firestore docs cap at 1 MiB; keep logos far below that.
+const LOGO_MAX_CHARS = 150_000;
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("That file couldn't be read as an image."));
+    img.src = src;
+  });
 }
 
-export async function deleteCompanyLogo(logoURL: string): Promise<void> {
+export async function encodeCompanyLogo(file: File): Promise<string> {
+  const objectURL = URL.createObjectURL(file);
   try {
-    const ref = storageRef(storage, logoURL);
-    await deleteObject(ref);
-  } catch {
-    // logo may already be gone or URL not a storage ref; non-fatal.
+    const img = await loadImage(objectURL);
+    // SVGs without width/height attributes report 0x0.
+    const width = img.naturalWidth || LOGO_MAX_SIDE;
+    const height = img.naturalHeight || LOGO_MAX_SIDE;
+    const scale = Math.min(1, LOGO_MAX_SIDE / Math.max(width, height));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Your browser couldn't process the image.");
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    // WebP keeps transparency and is small; browsers without WebP encoding
+    // silently return PNG instead.
+    let dataURL = canvas.toDataURL("image/webp", 0.9);
+    if (!dataURL.startsWith("data:image/webp")) dataURL = canvas.toDataURL("image/png");
+    if (dataURL.length > LOGO_MAX_CHARS) {
+      throw new Error("This logo is too detailed to store. Try a simpler or smaller image.");
+    }
+    return dataURL;
+  } finally {
+    URL.revokeObjectURL(objectURL);
   }
 }

@@ -18,12 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  createCompany,
-  deleteCompanyLogo,
-  updateCompany,
-  uploadCompanyLogo,
-} from "@/lib/queries/companies";
+import { createCompany, encodeCompanyLogo, updateCompany } from "@/lib/queries/companies";
 import { useAuth } from "@/lib/auth/useAuth";
 import type { Company } from "@/types/company";
 
@@ -33,6 +28,10 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
+
+function errorMessage(err: unknown): string | undefined {
+  return err instanceof Error ? err.message : undefined;
+}
 
 export function CompanyForm({
   open,
@@ -46,8 +45,8 @@ export function CompanyForm({
   onSaved: () => void;
 }) {
   const { user } = useAuth();
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(company?.logoURL ?? null);
+  const [logoURL, setLogoURL] = useState<string | null>(company?.logoURL ?? null);
+  const [encodingLogo, setEncodingLogo] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const form = useForm<FormValues>({
@@ -58,22 +57,26 @@ export function CompanyForm({
     },
   });
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const input = e.target;
+    const file = input.files?.[0];
+    // Reset so picking the same file again still fires onChange.
+    input.value = "";
     if (!file) return;
-    setLogoFile(file);
-    setLogoPreview(URL.createObjectURL(file));
+    setEncodingLogo(true);
+    try {
+      setLogoURL(await encodeCompanyLogo(file));
+    } catch (err) {
+      toast.error("Couldn't use that logo", { description: errorMessage(err) });
+    } finally {
+      setEncodingLogo(false);
+    }
   }
 
   async function onSubmit(values: FormValues) {
     setSaving(true);
     try {
       if (company) {
-        let logoURL = company.logoURL;
-        if (logoFile) {
-          logoURL = await uploadCompanyLogo(company.id, logoFile);
-          if (company.logoURL) await deleteCompanyLogo(company.logoURL);
-        }
         await updateCompany(company.id, {
           name: values.name,
           website: values.website || null,
@@ -82,22 +85,18 @@ export function CompanyForm({
         toast.success("Company updated");
       } else {
         if (!user) return;
-        const id = await createCompany({
+        await createCompany({
           name: values.name,
           website: values.website || null,
-          logoURL: null,
+          logoURL,
           createdBy: user.uid,
         });
-        if (logoFile) {
-          const logoURL = await uploadCompanyLogo(id, logoFile);
-          await updateCompany(id, { logoURL });
-        }
         toast.success("Company created");
       }
       onSaved();
       onOpenChange(false);
-    } catch {
-      toast.error("Failed to save company");
+    } catch (err) {
+      toast.error("Failed to save company", { description: errorMessage(err) });
     } finally {
       setSaving(false);
     }
@@ -116,13 +115,13 @@ export function CompanyForm({
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
             <div className="flex items-center gap-4">
               <Avatar className="size-14 rounded-lg">
-                <AvatarImage src={logoPreview ?? undefined} alt="Logo" />
+                <AvatarImage src={logoURL ?? undefined} alt="Logo" />
                 <AvatarFallback className="rounded-lg">
                   {form.watch("name")?.[0]?.toUpperCase() ?? "?"}
                 </AvatarFallback>
               </Avatar>
               <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                <Upload className="size-4" />
+                {encodingLogo ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
                 Upload logo
                 <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
               </label>
@@ -157,7 +156,7 @@ export function CompanyForm({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={saving}>
+              <Button type="submit" disabled={saving || encodingLogo}>
                 {saving ? <Loader2 className="animate-spin" /> : null}
                 Save
               </Button>
