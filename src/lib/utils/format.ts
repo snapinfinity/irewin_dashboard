@@ -1,15 +1,34 @@
 import type { Timestamp } from "firebase/firestore";
 
+const CURRENCY_SYMBOL_MAP: Record<string, string> = {
+  "€": "EUR",
+  "$": "USD",
+  "£": "GBP",
+  "₹": "INR",
+};
+
+function normalizeCurrency(currency?: string | null): string {
+  const c = (currency ?? "").trim();
+  return CURRENCY_SYMBOL_MAP[c] ?? (c.toUpperCase() || "EUR");
+}
+
 export function formatSalaryRange(
   min: number | null,
   max: number | null,
   currency: string,
 ): string {
-  const formatter = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  });
+  const options: Intl.NumberFormatOptions = { maximumFractionDigits: 0 };
+  let formatter: Intl.NumberFormat;
+  try {
+    formatter = new Intl.NumberFormat("en-US", {
+      ...options,
+      style: "currency",
+      currency: normalizeCurrency(currency),
+    });
+  } catch {
+    // Unknown currency code: fall back to plain numbers instead of crashing
+    formatter = new Intl.NumberFormat("en-US", options);
+  }
   if (min != null && max != null) return `${formatter.format(min)} - ${formatter.format(max)}`;
   if (min != null) return `From ${formatter.format(min)}`;
   if (max != null) return `Up to ${formatter.format(max)}`;
